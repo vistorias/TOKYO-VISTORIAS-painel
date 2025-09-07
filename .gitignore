@@ -1,0 +1,17 @@
+# venv / caches
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# streamlit
+.streamlit/secrets.toml
+
+# credenciais
+*.json
+credentials.toml
+machine_id_v4
+.env
+
+# outros
+.DS_Store
