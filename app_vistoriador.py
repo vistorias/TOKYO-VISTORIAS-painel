@@ -197,28 +197,37 @@ def _yes(v) -> bool:
     return str(v).strip().upper() in {"S","SIM","TRUE","T","1","Y","YES"}
 
 def load_ids_from_index(gs_client) -> List[str]:
+    """Lê a planilha-índice e retorna os sheet_ids ativos; permite filtrar por mês."""
     try:
         sh = gs_client.open_by_key(INDEX_SHEET_ID)
         ws = sh.worksheet(INDEX_TAB_NAME)
         rows = ws.get_all_records()
-        if not rows: return []
-        norm = [{str(k).strip().upper()): r[k] for k in r} for r in rows]  # noqa
-    except Exception:
-        # compat com Python <3.12, se a linha acima acusar erro de parêntese:
-        norm = []
-        sh = gs_client.open_by_key(INDEX_SHEET_ID)
-        ws = sh.worksheet(INDEX_TAB_NAME)
-        rows = ws.get_all_records()
-        for r in rows:
-            norm.append({str(k).strip().upper(): r[k] for k in r})
+        if not rows:
+            return []
+        # ✅ correção aqui
+        norm = [{str(k).strip().upper(): r[k] for k in r} for r in rows]
 
-    ativos = [r for r in norm if _yes(r.get("ATIVO","S"))]
-    ids = []
-    for r in ativos:
-        sid = extract_sheet_id(str(r.get("URL","")))
-        if sid: ids.append(sid)
-    return ids
+        ativos = [r for r in norm if _yes(r.get("ATIVO", "S"))]
 
+        # Filtro opcional por MÊS (se a coluna existir)
+        meses = sorted({str(r.get("MÊS", "")).strip() for r in ativos if str(r.get("MÊS", "")).strip()})
+        if meses:
+            sel = st.multiselect("Meses no índice (opcional)", meses, default=meses)
+            if sel:
+                ativos = [r for r in ativos if str(r.get("MÊS", "")).strip() in sel]
+
+        ids = []
+        for r in ativos:
+            sid = extract_sheet_id(str(r.get("URL", "")))
+            if sid:
+                ids.append(sid)
+        return ids
+
+    except Exception as e:
+        st.error("Não consegui ler a planilha-índice (ÍNDICE_MESES). Verifique compartilhamento e ID.")
+        with st.expander("Detalhes do erro (índice)"):
+            st.exception(e)
+        return []
 # =========================
 # Entrada – múltiplas planilhas (via índice)
 # =========================
@@ -716,3 +725,4 @@ else:
     render_ranking_dia(base_dia[base_dia["TIPO"] == "FIXO"], "vistoriadores FIXO")
     st.markdown("#### 🚗 MÓVEL")
     render_ranking_dia(base_dia[base_dia["TIPO"].isin(["MÓVEL","MOVEL"])], "vistoriadores MÓVEL")
+
